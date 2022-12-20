@@ -1,0 +1,29 @@
+From 16bd5863049415e6f935973340ed4014aea72f02 Mon Sep 17 00:00:00 2001
+From: Jun Aruga <junaruga@users.noreply.github.com>
+Co-authored-by: Emily Giurleo <e.m.giurleo@gmail.com>
+Date: Thu, 6 Aug 2020 20:23:18 +0200
+Description: RUBY-2307 Segmentation fault on s390x
+Origin: https://github.com/mongodb/bson-ruby/pull/208
+Bug: https://jira.mongodb.org/browse/RUBY-2307
+Bug-Debian: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=971234
+
+diff --git a/ext/bson/read.c b/ext/bson/read.c
+index c90da382..d4700991 100644
+--- a/ext/bson/read.c
++++ b/ext/bson/read.c
+@@ -176,13 +176,13 @@ VALUE pvt_get_string(byte_buffer_t *b, const char *data_type)
+   }
+   ENSURE_BSON_READ(b, 4 + length);
+   str_ptr = READ_PTR(b) + 4;
+-  last_byte = *(READ_PTR(b) + 4 + length_le - 1);
++  last_byte = *(READ_PTR(b) + 4 + length - 1);
+   if (last_byte != 0) {
+     pvt_raise_decode_error(rb_sprintf("Last byte of the string is not null: 0x%x", (int) last_byte));
+   }
+   rb_bson_utf8_validate(str_ptr, length - 1, true, data_type);
+   string = rb_enc_str_new(str_ptr, length - 1, rb_utf8_encoding());
+-  b->read_position += 4 + length_le;
++  b->read_position += 4 + length;
+   return string;
+ }
+ 

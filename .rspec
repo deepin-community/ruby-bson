@@ -1,0 +1,3 @@
+--color
+--format <%= ENV["CI"] ? 'Rfc::Riff' : 'Fuubar'%>
+--tty

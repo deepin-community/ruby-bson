@@ -1,0 +1,645 @@
+.. http://docs.mongodb.com/ecosystem/tutorial/ruby-bson-tutorial-4-0/
+
+.. _ruby-bson-tutorial-4-0:
+
+=================
+BSON 4.x Tutorial
+=================
+
+.. default-domain:: mongodb
+
+.. contents:: On this page
+   :local:
+   :backlinks: none
+   :depth: 1
+   :class: twocols
+
+This tutorial discusses using the Ruby BSON library.
+
+Installation
+------------
+
+The BSON library can be installed from `Rubygems <http://rubygems.org>`_
+manually or with bundler.
+
+To install the gem manually:
+
+.. code-block:: sh
+
+    gem install bson -v '~> 4.0'
+
+To install the gem with bundler, include the following in your ``Gemfile``:
+
+.. code-block:: ruby
+
+    gem 'bson', '~> 4.0'
+
+The BSON library is compatible with MRI >= 2.3 and JRuby >= 9.2.
+
+Use With ActiveSupport
+----------------------
+
+Serialization for ActiveSupport-defined classes, such as TimeWithZone, is
+not loaded by default to avoid a hard dependency of BSON on ActiveSupport.
+When using BSON in an application that also uses ActiveSupport, the
+ActiveSupport-related code must be explicitly required:
+
+.. code-block:: ruby
+
+    require 'bson'
+    require 'bson/active_support'
+
+BSON Serialization
+------------------
+
+Getting a Ruby object's raw BSON representation is done by calling ``to_bson``
+on the Ruby object, which will return a ``BSON::ByteBuffer``. For example:
+
+.. code-block:: ruby
+
+  "Shall I compare thee to a summer's day".to_bson
+  1024.to_bson
+
+Generating an object from BSON is done via calling ``from_bson`` on the class
+you wish to instantiate and passing it a ``BSON::ByteBuffer`` instance.
+
+.. code-block:: ruby
+
+  String.from_bson(byte_buffer)
+  BSON::Int32.from_bson(byte_buffer)
+
+
+Byte Buffers
+------------
+
+BSON library 4.0 introduces the use of native byte buffers in MRI and JRuby
+instead of using ``StringIO``, for improved performance.
+
+Writing
+```````
+
+To create a ``ByteBuffer`` for writing (i.e. serializing to BSON),
+instantiate ``BSON::ByteBuffer`` with no arguments:
+
+.. code-block:: ruby
+
+  buffer = BSON::ByteBuffer.new
+
+To write raw bytes to the byte buffer with no transformations, use
+``put_byte`` and ``put_bytes`` methods. They take a byte string as the argument
+and copy this string into the buffer. ``put_byte`` enforces that the argument
+is a string of length 1; ``put_bytes`` accepts any length strings.
+The strings can contain null bytes.
+
+.. code-block:: ruby
+
+  buffer.put_byte("\x00")
+
+  buffer.put_bytes("\xff\xfe\x00\xfd")
+
+.. note::
+
+  ``put_byte`` and ``put_bytes`` do not write a BSON type byte prior to
+  writing the argument to the byte buffer.
+
+Subsequent write methods write objects of particular types in the
+`BSON spec <http://bsonspec.org/spec.html>`_. Note that the type indicated
+by the method name takes precedence over the type of the argument -
+for example, if a floating-point value is given to ``put_int32``, it is
+coerced into an integer and the resulting integer is written to the byte
+buffer.
+
+To write a UTF-8 string (BSON type 0x02) to the byte buffer, use ``put_string``:
+
+.. code-block:: ruby
+
+  buffer.put_string("hello, world")
+
+Note that BSON strings are always encoded in UTF-8. Therefore, the
+argument must be either in UTF-8 or in an encoding convertable to UTF-8
+(i.e. not binary). If the argument is in an encoding other than UTF-8,
+the string is first converted to UTF-8 and the UTF-8 encoded version is
+written to the buffer. The string must be valid in its claimed encoding,
+including being valid UTF-8 if the encoding is UTF-8.
+The string may contain null bytes.
+
+The BSON specification also defines a CString type, which is used for
+example for document keys. To write CStrings to the buffer, use ``put_cstring``:
+
+.. code-block:: ruby
+
+  buffer.put_cstring("hello, world")
+
+As with regular strings, CStrings in BSON must be UTF-8 encoded. If the
+argument is not in UTF-8, it is converted to UTF-8 and the resulting string
+is written to the buffer. Unlike ``put_string``, the UTF-8 encoding of
+the argument given to ``put_cstring`` cannot have any null bytes, since the
+CString serialization format in BSON is null terminated.
+
+Unlike ``put_string``, ``put_cstring`` also accepts symbols and integers.
+In all cases the argument is stringified prior to being written:
+
+.. code-block:: ruby
+
+  buffer.put_cstring(:hello)
+  buffer.put_cstring(42)
+
+To write a 32-bit or a 64-bit integer to the byte buffer, use
+``put_int32`` and ``put_int64`` methods respectively. Note that Ruby
+integers can be arbitrarily large; if the value being written exceeds the
+range of a 32-bit or a 64-bit integer, ``put_int32`` and ``put_int64``
+raise ``RangeError``.
+
+.. code-block:: ruby
+
+  buffer.put_int32(12345)
+  buffer.put_int64(123456789012345)
+
+.. note::
+
+  If ``put_int32`` or ``put_int64`` are given floating point arguments,
+  the arguments are first coerced into integers and the integers are
+  written to the byte buffer.
+
+To write a 64-bit floating point value to the byte buffer, use ``put_double``:
+
+.. code-block:: ruby
+
+  buffer.put_double(3.14159)
+
+To obtain the serialized data as a byte string (for example, to send the data
+over a socket), call ``to_s`` on the buffer:
+
+.. code-block:: ruby
+
+  buffer = BSON::ByteBuffer.new
+  buffer.put_string('testing')
+  socket.write(buffer.to_s)
+
+.. note::
+
+  ``ByteBuffer`` keeps track of read and write positions separately.
+  There is no way to rewind the buffer for writing - ``rewind`` only affects
+  the read position.
+
+
+Reading
+```````
+
+To create a ``ByteBuffer`` for reading (i.e. deserializing from BSON),
+instantiate ``BSON::ByteBuffer`` with a byte string as the argument:
+
+.. code-block:: ruby
+
+  buffer = BSON::ByteBuffer.new(string) # a read mode buffer.
+
+Reading from the buffer is done via the following API:
+
+.. code-block:: ruby
+
+  buffer.get_byte # Pulls a single byte from the buffer.
+  buffer.get_bytes(value) # Pulls n number of bytes from the buffer.
+  buffer.get_cstring # Pulls a null-terminated string from the buffer.
+  buffer.get_double # Pulls a 64-bit floating point from the buffer.
+  buffer.get_int32 # Pulls a 32-bit integer (4 bytes) from the buffer.
+  buffer.get_int64 # Pulls a 64-bit integer (8 bytes) from the buffer.
+  buffer.get_string # Pulls a UTF-8 string from the buffer.
+
+To restart reading from the beginning of a buffer, use ``rewind``:
+
+.. code-block:: ruby
+
+  buffer.rewind
+
+.. note::
+
+  ``ByteBuffer`` keeps track of read and write positions separately.
+  ``rewind`` only affects the read position.
+
+
+Supported Classes
+-----------------
+
+Core Ruby classes that have representations in the BSON specification and
+will have a ``to_bson`` method defined for them are: ``Object``, ``Array``,
+``FalseClass``, ``Float``, ``Hash``, ``Integer``, ``NilClass``, ``Regexp``,
+``String``, ``Symbol`` (deprecated), ``Time``, ``TrueClass``.
+
+In addition to the core Ruby objects, BSON also provides some special types
+specific to the specification:
+
+
+``BSON::Binary``
+````````````````
+
+Use ``BSON::Binary`` objects to store arbitrary binary data. The ``Binary``
+objects can be constructed from binary strings as follows:
+
+.. code-block:: ruby
+
+  BSON::Binary.new("binary_string")
+  # => <BSON::Binary:0x47113101192900 type=generic data=0x62696e6172795f73...>
+
+By default, ``Binary`` objects are created with BSON binary subtype 0
+(``:generic``). The subtype can be explicitly specified to indicate that
+the bytes encode a particular type of data:
+
+.. code-block:: ruby
+
+  BSON::Binary.new("binary_string", :user)
+  # => <BSON::Binary:0x47113101225420 type=user data=0x62696e6172795f73...>
+
+Valid subtypes are ``:generic``, ``:function``, ``:old``, ``:uuid_old``,
+``:uuid``, ``:md5`` and ``:user``.
+
+The data and the subtype can be retrieved from ``Binary`` instances using
+``data`` and ``type`` attributes, as follows:
+
+.. code-block:: ruby
+
+  binary = BSON::Binary.new("binary_string", :user)
+  binary.data
+  => "binary_string"
+  binary.type
+  => :user
+
+.. note::
+
+  ``BSON::Binary`` objects always store the data in ``BINARY`` encoding,
+  regardless of the encoding that the string passed to the constructor
+  was in:
+
+  .. code-block:: ruby
+
+    str = "binary_string"
+    str.encoding
+    # => #<Encoding:US-ASCII>
+    binary = BSON::Binary.new(str)
+    binary.data
+    # => "binary_string"
+    binary.data.encoding
+    # => #<Encoding:ASCII-8BIT>
+
+UUID Methods
+~~~~~~~~~~~~
+
+To create a UUID BSON::Binary (binary subtype 4) from its RFC 4122-compliant
+string representation, use the ``from_uuid`` method:
+
+.. code-block:: ruby
+
+  uuid_str = "00112233-4455-6677-8899-aabbccddeeff"
+  BSON::Binary.from_uuid(uuid_str)
+  # => <BSON::Binary:0x46986653612880 type=uuid data=0x0011223344556677...>
+
+To stringify a UUID BSON::Binary to an RFC 4122-compliant representation,
+use the ``to_uuid`` method:
+
+.. code-block:: ruby
+
+  binary = BSON::Binary.new("\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF".force_encoding('BINARY'), :uuid)
+  => <BSON::Binary:0x46942046606480 type=uuid data=0x0011223344556677...>
+  binary.to_uuid
+  => "00112233-4455-6677-8899aabbccddeeff"
+
+The standard representation may be explicitly specified when invoking both
+``from_uuid`` and ``to_uuid`` methods:
+
+.. code-block:: ruby
+
+  binary = BSON::Binary.from_uuid(uuid_str, :standard)
+  binary.to_uuid(:standard)
+
+Note that the ``:standard`` representation can only be used with a Binary
+of subtype ``:uuid`` (not ``:uuid_old``).
+
+Legacy UUIDs
+~~~~~~~~~~~~
+
+Data stored in BSON::Binary objects of subtype 3 (``:uuid_old``) may be
+persisted in one of three different byte orders depending on which driver
+created the data. The byte orders are CSharp legacy, Java legacy and Python
+legacy. The Python legacy byte order is the same as the standard RFC 4122
+byte order; CSharp legacy and Java legacy byte orders have some of the bytes
+swapped.
+
+The Binary object containing a legacy UUID does not encode *which* format
+the UUID is stored in. Therefore, methods that convert to and from the legacy
+UUID format take the desired format, or representation, as their argument.
+An application may copy legacy UUID Binary objects without knowing which byte
+order they store their data in.
+
+The following methods for working with legacy UUIDs are provided for
+interoperability with existing deployments storing data in legacy UUID formats.
+It is recommended that new applications use the ``:uuid`` (subtype 4) format
+only, which is compliant with RFC 4122.
+
+To stringify a legacy UUID BSON::Binary, use the ``to_uuid`` method specifying
+the desired representation. Accepted representations are ``:csharp_legacy``,
+``:java_legacy`` and ``:python_legacy``. Note that a legacy UUID BSON::Binary
+cannot be stringified without specifying a representation.
+
+.. code-block:: ruby
+
+  binary = BSON::Binary.new("\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF".force_encoding('BINARY'), :uuid_old)
+  => <BSON::Binary:0x46942046606480 type=uuid data=0x0011223344556677...>
+
+  binary.to_uuid
+  # => ArgumentError (Representation must be specified for BSON::Binary objects of type :uuid_old)
+
+  binary.to_uuid(:csharp_legacy)
+  # => "33221100-5544-7766-8899aabbccddeeff"
+
+  binary.to_uuid(:java_legacy)
+  # => "77665544-3322-1100-ffeeddccbbaa9988"
+
+  binary.to_uuid(:python_legacy)
+  # => "00112233-4455-6677-8899aabbccddeeff"
+
+To create a legacy UUID BSON::Binary from the string representation of the
+UUID, use the ``from_uuid`` method specifying the desired representation:
+
+.. code-block:: ruby
+
+  uuid_str = "00112233-4455-6677-8899-aabbccddeeff"
+
+  BSON::Binary.from_uuid(uuid_str, :csharp_legacy)
+  # => <BSON::Binary:0x46986653650480 type=uuid_old data=0x3322110055447766...>
+
+  BSON::Binary.from_uuid(uuid_str, :java_legacy)
+  # => <BSON::Binary:0x46986653663960 type=uuid_old data=0x7766554433221100...>
+
+  BSON::Binary.from_uuid(uuid_str, :python_legacy)
+  # => <BSON::Binary:0x46986653686300 type=uuid_old data=0x0011223344556677...>
+
+These methods can be used to convert from one representation to another:
+
+.. code-block:: ruby
+
+  BSON::Binary.from_uuid('77665544-3322-1100-ffeeddccbbaa9988',:java_legacy).to_uuid(:csharp_legacy)
+  # => "33221100-5544-7766-8899aabbccddeeff"
+
+
+``BSON::Code``
+``````````````
+
+Represents a string of JavaScript code.
+
+.. code-block:: ruby
+
+  BSON::Code.new("this.value = 5;")
+
+``BSON::CodeWithScope``
+```````````````````````
+
+Represents a string of JavaScript code with a hash of values.
+
+.. code-block:: ruby
+
+  BSON::CodeWithScope.new("this.value = age;", age: 5)
+
+``BSON::Document``
+``````````````````
+
+This is a subclass of ``Hash`` that stores all keys as strings, but allows
+access to them with symbol keys.
+
+.. code-block:: ruby
+
+  BSON::Document[:key, "value"]
+  BSON::Document.new
+
+``BSON::MaxKey``
+````````````````
+
+Represents a value in BSON that will always compare higher to another value.
+
+.. code-block:: ruby
+
+  BSON::MaxKey.new
+
+``BSON::MinKey``
+````````````````
+
+Represents a value in BSON that will always compare lower to another value.
+
+.. code-block:: ruby
+
+  BSON::MinKey.new
+
+``BSON::ObjectId``
+``````````````````
+
+Represents a 12 byte unique identifier for an object on a given machine.
+
+.. code-block:: ruby
+
+  BSON::ObjectId.new
+
+``BSON::Timestamp``
+```````````````````
+
+Represents a special time with a start and increment value.
+
+.. code-block:: ruby
+
+  BSON::Timestamp.new(5, 30)
+
+``BSON::Undefined``
+```````````````````
+
+Represents a placeholder for a value that was not provided.
+
+.. code-block:: ruby
+
+  BSON::Undefined.new
+
+``BSON::Decimal128``
+````````````````````
+
+Represents a 128-bit decimal-based floating-point value capable of emulating
+decimal rounding with exact precision.
+
+.. code-block:: ruby
+
+  # Instantiate with a String
+  BSON::Decimal128.new("1.28")
+
+  # Instantiate with a BigDecimal
+  d = BigDecimal(1.28, 3)
+  BSON::Decimal128.new(d)
+
+``Symbol``
+``````````
+
+The BSON specification defines a symbol type which allows round-tripping
+Ruby ``Symbol`` values (i.e., a Ruby ``Symbol``is encoded into a BSON symbol
+and a BSON symbol is decoded into a Ruby ``Symbol``). However, since most
+programming langauges do not have a native symbol type, to promote
+interoperabilty, MongoDB deprecated the BSON symbol type and encourages
+strings to be used instead.
+
+.. note::
+
+  In BSON, hash *keys* are always strings. Non-string values will be
+  stringified when used as hash keys:
+
+  .. code-block:: ruby
+
+    Hash.from_bson({foo: 'bar'}.to_bson)
+    # => {"foo"=>"bar"}
+
+    Hash.from_bson({1 => 2}.to_bson)
+    # => {"1"=>2}
+
+By default, the BSON library encodes ``Symbol`` hash values as strings and
+decodes BSON symbols into Ruby ``Symbol`` values:
+
+.. code-block:: ruby
+
+  {foo: :bar}.to_bson.to_s
+  # => "\x12\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x00"
+
+  # 0x02 is the string type
+  Hash.from_bson(BSON::ByteBuffer.new("\x12\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x00".force_encoding('BINARY')))
+  # => {"foo"=>"bar"}
+
+  # 0x0E is the symbol type
+  Hash.from_bson(BSON::ByteBuffer.new("\x12\x00\x00\x00\x0Efoo\x00\x04\x00\x00\x00bar\x00\x00".force_encoding('BINARY')))
+  # => {"foo"=>:bar}
+
+To force encoding of Ruby symbols to BSON symbols, wrap the Ruby symbols in
+``BSON::Symbol::Raw``:
+
+.. code-block:: ruby
+
+  {foo: BSON::Symbol::Raw.new(:bar)}.to_bson.to_s
+  # => "\x12\x00\x00\x00\x0Efoo\x00\x04\x00\x00\x00bar\x00\x00"
+
+JSON Serialization
+------------------
+
+Some BSON types have special representations in JSON. These are as follows
+and will be automatically serialized in the form when calling ``to_json`` on
+them.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 105
+
+   * - Object
+     - JSON
+
+   * - ``BSON::Binary``
+     - ``{ "$binary" : "\x01", "$type" : "md5" }``
+
+   * - ``BSON::Code``
+     - ``{ "$code" : "this.v = 5" }``
+
+   * - ``BSON::CodeWithScope``
+     - ``{ "$code" : "this.v = value", "$scope" : { v => 5 }}``
+
+   * - ``BSON::MaxKey``
+     - ``{ "$maxKey" : 1 }``
+
+   * - ``BSON::MinKey``
+     - ``{ "$minKey" : 1 }``
+
+   * - ``BSON::ObjectId``
+     - ``{ "$oid" : "4e4d66343b39b68407000001" }``
+
+   * - ``BSON::Timestamp``
+     - ``{ "t" : 5, "i" : 30 }``
+
+   * - ``Regexp``
+     - ``{ "$regex" : "[abc]", "$options" : "i" }``
+
+
+Time Instances
+--------------
+
+Times in Ruby can have nanosecond precision. Times in BSON (and MongoDB)
+can only have millisecond precision. When Ruby ``Time`` instances are
+serialized to BSON or Extended JSON, the times are floored to the nearest
+millisecond.
+
+.. note::
+
+  The time as always rounded down. If the time precedes the Unix epoch
+  (January 1, 1970 00:00:00 UTC), the absolute value of the time would
+  increase:
+
+  .. code-block:: ruby
+
+    time = Time.utc(1960, 1, 1, 0, 0, 0, 999_999)
+    time.to_f
+    # => -315619199.000001
+    time.floor(3).to_f
+    # => -315619199.001
+
+.. note::
+
+  JRuby as of version 9.2.11.0 `rounds pre-Unix epoch times up rather than
+  down <https://github.com/jruby/jruby/issues/6104>`_. bson-ruby works around
+  this and correctly floors the times when serializing on JRuby.
+
+Because of this flooring, applications are strongly recommended to perform
+all time calculations using integer math, as inexactness of floating point
+calculations may produce unexpected results.
+
+
+Date And DateTime Instances
+---------------------------
+
+BSON only supports storing the time as the number of seconds since the
+Unix epoch. Ruby's ``Date`` and ``DateTime`` instances can be serialized
+to BSON, but when the BSON is deserialized the times will be returned as
+``Time`` instances.
+
+
+Regular Expressions
+-------------------
+
+Ruby regular expressions always have BSON regular expressions' equivalent of
+'m' flag on. In order for behavior to be preserved between the two, the 'm'
+option is always added when a Ruby regular expression is serialized to BSON.
+
+There is a class provided by the bson gem, ``Regexp::Raw``, to allow Ruby users
+to get around this. You can simply create a regular expression like this:
+
+.. code-block:: ruby
+
+  Regexp::Raw.new("^b403158")
+
+This code example illustrates the difference between serializing a core Ruby
+``Regexp`` versus a ``Regexp::Raw`` object:
+
+.. code-block:: ruby
+
+  regexp_ruby = /^b403158/
+  # => /^b403158/
+  regexp_ruby.to_bson
+  # => #<BSON::ByteBuffer:0x007fcf20ab8028>
+  _.to_s
+  # => "^b403158\x00m\x00"
+  regexp_raw = Regexp::Raw.new("^b403158")
+  # => #<BSON::Regexp::Raw:0x007fcf21808f98 @pattern="^b403158", @options="">
+  regexp_raw.to_bson
+  # => #<BSON::ByteBuffer:0x007fcf213622f0>
+  _.to_s
+  # => "^b403158\x00\x00"
+
+
+Please use the ``Regexp::Raw`` class to instantiate your BSON regular
+expressions to get the exact pattern and options you want.
+
+When regular expressions are deserialized, they return a wrapper that holds the
+raw regex string, but do not compile it. In order to get the Ruby ``Regexp``
+object, one must call ``compile`` on the returned object.
+
+.. code-block:: ruby
+
+  regex = Regexp.from_bson(byte_buffer)
+  regex.pattern #=> Returns the pattern as a string.
+  regex.options #=> Returns the raw options as a String.
+  regex.compile #=> Returns the compiled Ruby Regexp object.

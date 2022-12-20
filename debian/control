@@ -1,0 +1,31 @@
+Source: ruby-bson
+Section: ruby
+Priority: optional
+Maintainer: Debian Ruby Team <pkg-ruby-extras-maintainers@lists.alioth.debian.org>
+Uploaders: Cédric Boutillier <boutil@debian.org>,
+           Prach Pongpanich <prachpub@gmail.com>,
+           Apollon Oikonomopoulos <apoikos@debian.org>
+Build-Depends: debhelper-compat (= 13),
+               gem2deb (>= 1.0~),
+               ruby-json,
+               ruby-rspec
+Standards-Version: 4.5.0
+Vcs-Git: https://salsa.debian.org/ruby-team/ruby-bson.git
+Vcs-Browser: https://salsa.debian.org/ruby-team/ruby-bson
+Homepage: https://docs.mongodb.com/ruby-driver/current/tutorials/bson-v4/
+Testsuite: autopkgtest-pkg-ruby
+XS-Ruby-Versions: all
+Rules-Requires-Root: no
+
+Package: ruby-bson
+Architecture: any
+XB-Ruby-Versions: ${ruby:Versions}
+Depends: ${misc:Depends},
+         ${ruby:Depends},
+         ${shlibs:Depends}
+Description: Ruby implementation of BSON
+ BSON is a binary-encoded serialization of JSON-like documents. It is a binary
+ form for representing simple data structures and associative arrays.
+ .
+ This library provides an implementation of BSON for the Ruby programming
+ language.

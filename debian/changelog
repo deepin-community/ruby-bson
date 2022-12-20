@@ -1,0 +1,175 @@
+ruby-bson (4.10.0-deepin1) unstable; urgency=medium
+
+  * Rebuild
+
+ -- Deepin Packages Builder <packages@deepin.org>  Fri, 11 Nov 2022 18:04:18 +0800
+
+ruby-bson (4.10.0-2) unstable; urgency=medium
+
+  * Add upstream patch to fix segfault on s390x (Closes: #971234)
+
+ -- Cédric Boutillier <boutil@debian.org>  Tue, 06 Oct 2020 00:24:42 +0200
+
+ruby-bson (4.10.0-1) unstable; urgency=medium
+
+  * New upstream version 4.10.0
+  * Drop ruby-bson-ext transitional package (Closes: #940777)
+  * Update packaging
+    - v4 watch file
+    - debhelper-compat level set to 13
+    - install readme
+    - use gem install style
+
+ -- Cédric Boutillier <boutil@debian.org>  Wed, 29 Jul 2020 01:07:05 +0200
+
+ruby-bson (4.7.0-2) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Debian Janitor ]
+  * Trim trailing whitespace.
+  * Bump debhelper from old 11 to 12.
+  * Set debhelper-compat version in Build-Depends.
+  * Set upstream metadata fields: Repository, Repository-Browse.
+  * Update standards version to 4.5.0, no changes needed.
+
+  [ Pirate Praveen ]
+  * Bump minimum version of gem2deb to 1.0
+
+ -- Pirate Praveen <praveen@debian.org>  Mon, 13 Jul 2020 00:10:07 +0530
+
+ruby-bson (4.7.0-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Utkarsh Gupta ]
+  * Add salsa-ci.yml
+
+  [ Lucas Kanashiro ]
+  * New upstream version 4.7.0
+  * d/rules: add export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+  * Declare compliance with Debian Policy 4.4.1
+  * Update years of upstream copyright
+  * d/copyright: use secure url in Format field
+  * Use autodep8 test for ruby packages instead of defining its own test
+
+ -- Lucas Kanashiro <lucas.kanashiro@canonical.com>  Tue, 21 Jan 2020 09:13:42 -0300
+
+ruby-bson (4.3.0-1) unstable; urgency=medium
+
+  * New upstream version 4.3.0
+  * Drop d/patches
+  * Bump Standards-Version to 4.1.3; no changes needed
+  * Switch Vcs-* URLs to salsa.d.o
+  * d/copyright: adjust years
+  * d/control: switch Homepage to https://
+  * d/control: convert Priority: extra to optional
+  * Bump dh compat to 11; no changes needed
+  * d/watch: switch URL to Github and handle betas
+  * Add d/ruby-tests.rake
+    + B-D on ruby-rspec
+  * Enable autopkgtests using gem2deb-test-runner
+
+ -- Apollon Oikonomopoulos <apoikos@debian.org>  Fri, 30 Mar 2018 00:29:43 +0300
+
+ruby-bson (4.2.1-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Apollon Oikonomopoulos <apoikos@debian.org>  Wed, 21 Dec 2016 14:49:17 +0200
+
+ruby-bson (4.2.0-2) unstable; urgency=medium
+
+  * Drop unneeded build-dependencies:
+    + ruby-activesupport
+    + ruby-mocha
+    + ruby-shoulda
+
+ -- Apollon Oikonomopoulos <apoikos@debian.org>  Tue, 20 Dec 2016 14:15:34 +0200
+
+ruby-bson (4.2.0-1) unstable; urgency=medium
+
+  [ Cédric Boutillier ]
+  * Bump debhelper compatibility level to 9
+  * Remove version in the gem2deb build-dependency
+  * Use https:// in Vcs-* fields
+  * Use https:// in Vcs-* fields
+  * Bump Standards-Version to 3.9.7 (no changes needed)
+  * Run wrap-and-sort on packaging files
+
+  [ Apollon Oikonomopoulos ]
+  * New upstream version 4.2.0
+    + Supports MongoDB server versions up to (and including) 3.4
+  * Drop patches merged upstream:
+    + Update_BSON_ObjectId_validation.patch
+    + remove_rubygems_from_bins.patch
+  * Drop ruby-bson.examples; not shipped upstream since 2.x
+  * Bump Standards to 3.9.8; no changes needed
+  * Take over ruby-bson-ext and ship the native extension in ruby-bson. The
+    native extension is now built by this very source and is required by
+    ruby-bson.
+    + Mark the ruby-bson package as arch: any
+    + Provide a dummy transitional package for ruby-bson-ext
+  * Add myself to Uploaders
+
+ -- Apollon Oikonomopoulos <apoikos@debian.org>  Tue, 20 Dec 2016 12:41:34 +0200
+
+ruby-bson (1.10.0-2) unstable; urgency=medium
+
+  * Fix CVE-2015-4410: DoS and possible injection (Closes: #787951)
+
+ -- Prach Pongpanich <prachpub@gmail.com>  Sun, 15 Nov 2015 12:15:48 +0700
+
+ruby-bson (1.10.0-1) unstable; urgency=medium
+
+  [ Cédric Boutillier ]
+  * The upstream copyright holder is now MongoDB Inc.
+  * Bump Standards-Version to 3.9.5 (no changes needed)
+
+  [ Prach Pongpanich ]
+  * Imported Upstream version 1.10.0 (Closes: #747739)
+
+ -- Prach Pongpanich <prachpub@gmail.com>  Thu, 15 May 2014 09:33:18 +0700
+
+ruby-bson (1.9.2-1) unstable; urgency=low
+
+  * Imported Upstream version 1.9.2
+
+ -- Prach Pongpanich <prachpub@gmail.com>  Thu, 05 Sep 2013 11:47:16 +0700
+
+ruby-bson (1.9.1-1) unstable; urgency=low
+
+  * New upstream version
+
+ -- Prach Pongpanich <prachpub@gmail.com>  Fri, 12 Jul 2013 19:47:57 +0700
+
+ruby-bson (1.9.0-1) unstable; urgency=low
+
+  * New upstream version
+  * Remove debian/source/local-options, unapply-patches are default
+    in dpkg-source since 1.16.1
+  * Refreshed d/patches/remove_rubygems_from_bins.patch
+  * Add myself as uploaders
+
+ -- Prach Pongpanich <prachpub@gmail.com>  Tue, 11 Jun 2013 21:26:14 +0700
+
+ruby-bson (1.8.5-2) unstable; urgency=low
+
+  * Recommend ruby-bson-ext
+
+ -- Cédric Boutillier <boutil@debian.org>  Mon, 13 May 2013 15:08:05 +0200
+
+ruby-bson (1.8.5-1) unstable; urgency=low
+
+  * New upstream version
+    + tests dropped from the gem version
+  * drop debian/ruby-tests.rb
+  * deactivate patches for tests
+
+ -- Cédric Boutillier <boutil@debian.org>  Mon, 13 May 2013 13:38:27 +0200
+
+ruby-bson (1.8.3-1) unstable; urgency=low
+
+  * Initial release (Closes: #703530)
+
+ -- Cédric Boutillier <boutil@debian.org>  Fri, 08 Mar 2013 15:28:28 +0100
